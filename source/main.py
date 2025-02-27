@@ -150,14 +150,6 @@ class Meta5AutoOptimizeRunner(MainClass):
             config.set("Tester", key, value)
 
         for key, value in {
-            # Optimization mode:
-            # 0 = No optimization (single test)
-            # 1 = Slow, complete optimization
-            # 2 = Fast genetic-based optimization
-            # 3 = All symbols selected in Market Watch
-            # 4 = All symbols in the tester's symbol list
-            'Optimization': '1',
-
             # The backtest model (how ticks are simulated):
             #  0 = Every tick
             #  1 = 1 minute OHLC
@@ -191,15 +183,8 @@ class Meta5AutoOptimizeRunner(MainClass):
             #  1 = Execution with random delay
             'ExecutionMode': '0',
 
-            # Optimization criterion:
-            #  0 = Maximize balance
-            #  1 = Maximize profit factor
-            #  2 = Maximize expected payoff
-            #  3 = Minimize drawdown
-            'OptimizationCriterion': '0',
-
             # Whether to run a visual backtest (0 = no, 1 = yes)
-            'Visual': '1',
+            'Visual': '0',
 
             # Replace htm file if exist (0 = no, 1 = yes)
             # 0 = create new file
