@@ -2,11 +2,10 @@ from configparser import ConfigParser
 import logging
 from pathlib import Path
 import shutil
-import subprocess
-from tkinter import filedialog
-from typing import Any, Dict, Iterable, Optional, Tuple
+import xml.etree.ElementTree as ET
+import csv
+from typing import Any, Dict
 
-import tqdm
 from source.common.main_class import MainClass
 
 
@@ -225,3 +224,53 @@ class Meta5AutoOptimizeRunner(MainClass):
 
         config.set('TesterInputs', self._config['Tester']['ModeInputName'], mode)
         return config
+
+    def _xml_to_csv(self, xml_path: Path, output_path: Path):
+        """
+        The function `_xml_to_csv` converts data from an XML file to a CSV file based on specific
+        worksheet and cell criteria.
+        
+        :param xml_path: The `xml_path` parameter is the path to the XML file that contains the data you
+        want to convert to CSV format. This function parses the XML file to extract the data and convert
+        it into a CSV file
+        :type xml_path: Path
+        :param output_path: The `output_path` parameter in the `_xml_to_csv` function is the path where
+        the CSV file will be saved after converting the data from the XML file. It should be a `Path`
+        object pointing to the location where you want to save the CSV file
+        :type output_path: Path
+        """
+        SS_NS = 'urn:schemas-microsoft-com:office:spreadsheet'
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        worksheet = None
+        for ws in root.findall('.//{%s}Worksheet' % SS_NS):
+            if ws.get('{%s}Name' % SS_NS) == 'Tester Optimizator Results':
+                worksheet = ws
+                break
+        if worksheet is None:
+            raise ValueError("Worksheet 'Tester Optimizator Results' not found")
+        table = worksheet.find('.//{%s}Table' % SS_NS)
+        rows = table.findall('.//{%s}Row' % SS_NS)
+        
+        header_row = rows[0]
+        header_cells = header_row.findall('.//{%s}Cell' % SS_NS)
+        headers = [
+            cell.find('{%s}Data' % SS_NS).text
+            for cell in header_cells
+            if cell.find('{%s}Data' % SS_NS) is not None
+        ]
+        
+        data = []
+        for row in rows[1:]:
+            cells = row.findall('.//{%s}Cell' % SS_NS)
+            row_data = [
+                cell.find('{%s}Data' % SS_NS).text if cell.find('{%s}Data' % SS_NS) is not None else ''
+                for cell in cells
+            ]
+            data.append(row_data)
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(headers)
+            for row in data:
+                writer.writerow(row)
