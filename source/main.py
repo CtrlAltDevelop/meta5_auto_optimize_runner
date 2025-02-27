@@ -12,21 +12,18 @@ from source.common.main_class import MainClass
 class CaseSensitiveConfigParser(ConfigParser):
     # This class extends the ConfigParser class and likely provides functionality for parsing
     # configuration files with case sensitivity.
-    def optionxform(self, option):
+    def optionxform(self, optionstr):
         """
-        The `optionxform` function in Python simply returns the input `option` without any
-        transformation.
+        The `optionxform` function simply returns the input `optionstr` without any modifications.
         
-        :param option: The `optionxform` method you provided seems to be a simple pass-through method
-        that returns the input `option` parameter as is. If you have any specific questions or need
-        further assistance related to this method or the `option` parameter, please feel free to ask!
-        :return: The `optionxform` method is returning the `option` parameter as it is without any
-        modification.
+        :param optionstr: The `optionxform` method you provided simply returns the `optionstr` parameter
+        as is without any modification. This means that whatever value is passed to `optionstr` will be
+        returned unchanged by the method
+        :return: The `optionstr` parameter is being returned as is, without any modifications.
         """
-        return option
+        return optionstr
 
 
-# This class inherits from MainClass and is named Meta5AutoOptimizeRunner.
 class Meta5AutoOptimizeRunner(MainClass):
     def __init__(self, base_path: Path, debug: bool = False):
         """
@@ -69,7 +66,8 @@ class Meta5AutoOptimizeRunner(MainClass):
         """
         try:
             return bool(self._config['TesterInputs'][self._config['Tester']['ModeInputName']])
-        except KeyError as error:
+        except KeyError as exception:
+            print(exception)
             print(f'ERROR, No option \"{self._config["Tester"]["ModeInputName"]}\" in section: "TesterInputs"')
             return False
 
