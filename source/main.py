@@ -1,10 +1,13 @@
+import subprocess
 from configparser import ConfigParser
 import logging
+from datetime import datetime
 from pathlib import Path
 import shutil
-import xml.etree.ElementTree as ET
 import csv
+from tqdm import tqdm
 from typing import Any, Dict
+import xml.etree.ElementTree as ET
 
 from source.common.main_class import MainClass
 
@@ -25,23 +28,7 @@ class CaseSensitiveConfigParser(ConfigParser):
 
 
 class Meta5AutoOptimizeRunner(MainClass):
-    def __init__(self, base_path: Path, debug: bool = False):
-        """
-        The function initializes a class instance with specified base path and debug mode, creating
-        directories for configurations, test data, and results, and reading settings from a
-        configuration file.
-        
-        :param base_path: The `base_path` parameter is a Path object that represents the base directory
-        path where your application or script is located. It is used to define the root directory for
-        storing configuration files, test data, and result files within the application's directory
-        structure
-        :type base_path: Path
-        :param debug: The `debug` parameter in the `__init__` method is a boolean flag that indicates
-        whether the code should run in debug mode or not. When `debug` is set to `True`, it typically
-        means that additional logging or debugging information will be displayed to help with
-        troubleshooting and development. When, defaults to False
-        :type debug: bool (optional)
-        """
+    def __init__(self, base_path: Path, debug: bool = True):
         super().__init__(base_path)
         self.debug: bool = debug
         self.config_path = base_path / "configs"
@@ -54,42 +41,45 @@ class Meta5AutoOptimizeRunner(MainClass):
         self._config = CaseSensitiveConfigParser()
         self._config.read(base_path / "settings.ini", encoding="utf-8")
 
-    def _validate_config(self) -> bool:
-        """
-        The function `_validate_config` checks if a specific key exists in a nested dictionary within
-        the configuration and returns a boolean based on its presence.
-        :return: The method `_validate_config` is returning a boolean value. It tries to access a
-        specific key within the `TesterInputs` section of the configuration
-        (`self._config['TesterInputs'][self._config['Tester']['ModeInputName']]`). If the key is found,
-        it returns `True`. If the key is not found and a `KeyError` is raised, it prints an error
-        message and
-        """
-        try:
-            return bool(self._config['TesterInputs'][self._config['Tester']['ModeInputName']])
-        except KeyError as exception:
-            print(exception)
-            print(f'ERROR, No option \"{self._config["Tester"]["ModeInputName"]}\" in section: "TesterInputs"')
-            return False
-
     def __run__(self):
-        if not self._validate_config():
-            return
-
         if self.debug:
             _path = self.data_path / 'test_data'
         else:
             print("Select Report Optimizer file")
-            _path = self._get_file_via_dialog(title=f"Report Optimizer file", filetypes=[("Report Optimizer", "*.csv")])
+            _path = self._get_folder_via_dialog('Select folder with Set Input files')
+
+        data_path = Path(self._config['Meta']['DataFolderPath']) / 'optimizes'
+        data_path.mkdir(parents=True, exist_ok=True)
+        print([e for e in _path.glob('*.set')])
+        for file in tqdm(_path.glob('*.set'), desc='Run Strategy Optimizer'):
+            filename = f'Res{file.name}_{int(datetime.now().timestamp())}'
+            _config = self._update_config(self._config, filename, self._process_set_file(file))
+            _config_path = self.config_path / f'{filename}.ini'
+            with open(_config_path, mode="w", encoding="utf-8") as ini_file:
+                _config.write(ini_file)
+            with open(self.config_path / f'{filename}.set', mode="w", encoding="utf-8") as set_file:
+                set_file.write('\n'.join([f"{key}={value}" for key, value in _config['TesterInputs'].items()]))
+            subprocess.run([self._config['Meta']['TerminalPath'], f"/config:{_config_path}"])
+            self._xml_to_csv(data_path / f'{filename}.htm', self.result_path / f'{filename}.xlsx')
+
+    @staticmethod
+    def _process_set_file(_config: Path) -> Dict[str, Any]:
+        settings_dict = {}
+        try:
+            with open(_config, 'r', encoding='utf-16') as file:
+                for line in file:
+                    line = line.strip()
+                    if line and not line.startswith(';') and '=' in line:
+                        key, value = line.split('=', 1)
+                        settings_dict[key.strip()] = value.strip()
+
+        except FileNotFoundError:
+            print(f"Error: File '{_config}' not found")
+        except Exception as e:
+            print(f"Error reading file: {e}")
+        return settings_dict
 
     def _remove_cache(self):
-        """
-        The function `_remove_cache` clears all files and directories within a specified folder path.
-        :return: If the folder path does not exist or is not a directory, the function will return
-        without performing any further actions. If the folder exists and is a directory, the function
-        will attempt to clear the folder by removing all files and directories within it. Any errors
-        encountered during the removal process will be logged, but the function will continue until all
-        items in the folder have been processed. Finally, a log message
-        """
         folder_path = Path(self._config['Meta']['DataFolderPath']) / 'Tester' / 'cache'
         if not folder_path.exists():
             logging.warning(f"The path {folder_path} does not exist.")
@@ -110,34 +100,7 @@ class Meta5AutoOptimizeRunner(MainClass):
                 logging.error(f"Failed to remove {item}: {e}")
         logging.info("Folder cleared successfully.")
 
-    def _update_config(self, _config: ConfigParser, filename: str, inputs: Dict[str, Any], mode: str) -> ConfigParser:
-        """
-        The function `_update_config` updates a configuration file with specified values for different
-        sections based on input parameters.
-        
-        :param _config: The `_config` parameter is a `ConfigParser` object that contains configuration
-        settings for different sections such as "Account", "Tester", and "TesterInputs". These settings
-        are used to update a new configuration with specific values for each section
-        :type _config: ConfigParser
-        :param filename: The `filename` parameter is a string that represents the path and filename for
-        the HTML report file that will be generated by the program. In the provided code snippet, it is
-        used to set the 'Report' key in the configuration file to specify the location where the report
-        file will be saved
-        :type filename: str
-        :param inputs: The `_update_config` method takes in several parameters to update a configuration
-        file. Here's a breakdown of the parameters:
-        :type inputs: Dict[str, Any]
-        :param mode: The `mode` parameter in the `_update_config` method is used to specify the mode
-        input name in the configuration. This value is set in the "TesterInputs" section of the
-        configuration file with the key being the mode input name and the value being the provided
-        `mode` parameter
-        :type mode: str
-        :return: The function `_update_config` returns a `ConfigParser` object with updated
-        configurations based on the input parameters `_config`, `filename`, `inputs`, and `mode`. The
-        function updates the sections "Common", "Tester", and "TesterInputs" with values from the input
-        `_config` and additional predefined key-value pairs. It also sets values from the `inputs`
-        dictionary and the `mode`
-        """
+    def _update_config(self, _config: ConfigParser, filename: str, inputs: Dict[str, Any]) -> ConfigParser:
         config = CaseSensitiveConfigParser()
         config.add_section("Common")
         config.add_section("Tester")
@@ -205,7 +168,6 @@ class Meta5AutoOptimizeRunner(MainClass):
         for key, value in inputs.items():
             config.set("TesterInputs", key, str(value))
 
-        config.set('TesterInputs', self._config['Tester']['ModeInputName'], mode)
         return config
 
     def _xml_to_csv(self, xml_path: Path, output_path: Path):
