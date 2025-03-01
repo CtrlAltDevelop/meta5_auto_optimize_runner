@@ -43,16 +43,16 @@ class Meta5AutoOptimizeRunner(MainClass):
 
     def __run__(self):
         if self.debug:
-            _path = self.data_path / 'test_data'
+            _path = self.data_path
         else:
             print("Select Report Optimizer file")
             _path = self._get_folder_via_dialog('Select folder with Set Input files')
 
         data_path = Path(self._config['Meta']['DataFolderPath']) / 'optimizes'
         data_path.mkdir(parents=True, exist_ok=True)
-        print([e for e in _path.glob('*.set')])
-        for file in tqdm(_path.glob('*.set'), desc='Run Strategy Optimizer'):
-            filename = f'Res{file.name}_{int(datetime.now().timestamp())}'
+        files = [each for each in _path.glob('*.set')]
+        for file in tqdm(files, total=len(files), desc='Run Strategy Optimizer'):
+            filename = f'Res{file.stem}_{int(datetime.now().timestamp())}'
             _config = self._update_config(self._config, filename, self._process_set_file(file))
             _config_path = self.config_path / f'{filename}.ini'
             with open(_config_path, mode="w", encoding="utf-8") as ini_file:
@@ -60,7 +60,7 @@ class Meta5AutoOptimizeRunner(MainClass):
             with open(self.config_path / f'{filename}.set', mode="w", encoding="utf-8") as set_file:
                 set_file.write('\n'.join([f"{key}={value}" for key, value in _config['TesterInputs'].items()]))
             subprocess.run([self._config['Meta']['TerminalPath'], f"/config:{_config_path}"])
-            self._xml_to_csv(data_path / f'{filename}.htm', self.result_path / f'{filename}.xlsx')
+            self._xml_to_csv(data_path / f'{filename}.xml', self.result_path / f'{filename}.csv')
 
     @staticmethod
     def _process_set_file(_config: Path) -> Dict[str, Any]:
@@ -158,7 +158,7 @@ class Meta5AutoOptimizeRunner(MainClass):
             'ShutdownTerminal': '1',
 
             # path and filename for htm report file
-            'Report': f'reports\\{filename}',
+            'Report': f'optimizes\\{filename}',
         }.items():
             config.set("Tester", key, value)
 
@@ -170,46 +170,34 @@ class Meta5AutoOptimizeRunner(MainClass):
 
         return config
 
-    def _xml_to_csv(self, xml_path: Path, output_path: Path):
-        """
-        The function `_xml_to_csv` converts data from an XML file to a CSV file based on specific
-        worksheet and cell criteria.
-        
-        :param xml_path: The `xml_path` parameter is the path to the XML file that contains the data you
-        want to convert to CSV format. This function parses the XML file to extract the data and convert
-        it into a CSV file
-        :type xml_path: Path
-        :param output_path: The `output_path` parameter in the `_xml_to_csv` function is the path where
-        the CSV file will be saved after converting the data from the XML file. It should be a `Path`
-        object pointing to the location where you want to save the CSV file
-        :type output_path: Path
-        """
-        SS_NS = 'urn:schemas-microsoft-com:office:spreadsheet'
+    @staticmethod
+    def _xml_to_csv(xml_path: Path, output_path: Path):
+        ss_ns = 'urn:schemas-microsoft-com:office:spreadsheet'
         tree = ET.parse(xml_path)
         root = tree.getroot()
         worksheet = None
-        for ws in root.findall('.//{%s}Worksheet' % SS_NS):
-            if ws.get('{%s}Name' % SS_NS) == 'Tester Optimizator Results':
+        for ws in root.findall('.//{%s}Worksheet' % ss_ns):
+            if ws.get('{%s}Name' % ss_ns) == 'Tester Optimizator Results':
                 worksheet = ws
                 break
         if worksheet is None:
             raise ValueError("Worksheet 'Tester Optimizator Results' not found")
-        table = worksheet.find('.//{%s}Table' % SS_NS)
-        rows = table.findall('.//{%s}Row' % SS_NS)
+        table = worksheet.find('.//{%s}Table' % ss_ns)
+        rows = table.findall('.//{%s}Row' % ss_ns)
         
         header_row = rows[0]
-        header_cells = header_row.findall('.//{%s}Cell' % SS_NS)
+        header_cells = header_row.findall('.//{%s}Cell' % ss_ns)
         headers = [
-            cell.find('{%s}Data' % SS_NS).text
+            cell.find('{%s}Data' % ss_ns).text
             for cell in header_cells
-            if cell.find('{%s}Data' % SS_NS) is not None
+            if cell.find('{%s}Data' % ss_ns) is not None
         ]
         
         data = []
         for row in rows[1:]:
-            cells = row.findall('.//{%s}Cell' % SS_NS)
+            cells = row.findall('.//{%s}Cell' % ss_ns)
             row_data = [
-                cell.find('{%s}Data' % SS_NS).text if cell.find('{%s}Data' % SS_NS) is not None else ''
+                cell.find('{%s}Data' % ss_ns).text if cell.find('{%s}Data' % ss_ns) is not None else ''
                 for cell in cells
             ]
             data.append(row_data)
