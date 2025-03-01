@@ -28,7 +28,7 @@ class CaseSensitiveConfigParser(ConfigParser):
 
 
 class Meta5AutoOptimizeRunner(MainClass):
-    def __init__(self, base_path: Path, debug: bool = True):
+    def __init__(self, base_path: Path, debug: bool = False):
         super().__init__(base_path)
         self.debug: bool = debug
         self.config_path = base_path / "configs"
@@ -184,7 +184,7 @@ class Meta5AutoOptimizeRunner(MainClass):
             raise ValueError("Worksheet 'Tester Optimizator Results' not found")
         table = worksheet.find('.//{%s}Table' % ss_ns)
         rows = table.findall('.//{%s}Row' % ss_ns)
-        
+
         header_row = rows[0]
         header_cells = header_row.findall('.//{%s}Cell' % ss_ns)
         headers = [
@@ -192,7 +192,7 @@ class Meta5AutoOptimizeRunner(MainClass):
             for cell in header_cells
             if cell.find('{%s}Data' % ss_ns) is not None
         ]
-        
+
         data = []
         for row in rows[1:]:
             cells = row.findall('.//{%s}Cell' % ss_ns)
