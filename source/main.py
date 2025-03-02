@@ -103,7 +103,7 @@ class Meta5AutoOptimizeRunner(MainClass):
                 logging.error(f"Failed to remove {item}: {e}")
         logging.info("Folder cleared successfully.")
 
-    def _update_config(self, _config: ConfigParser, filename: str, inputs: Dict[str, Any]) -> ConfigParser:
+    def _update_config(self, _config: ConfigParser, filename: str, inputs: Dict[str, Any], mode: str) -> ConfigParser:
         config = CaseSensitiveConfigParser()
         config.add_section("Common")
         config.add_section("Tester")
@@ -116,17 +116,6 @@ class Meta5AutoOptimizeRunner(MainClass):
             config.set("Tester", key, value)
 
         for key, value in {
-            # The backtest model (how ticks are simulated):
-            #  0 = Every tick
-            #  1 = 1 minute OHLC
-            #  2 = Open prices only
-            'Model': '2',
-
-            # Whether to enable/disable the use of custom dates:
-            #  0 = Use the full available data
-            #  1 = Use the FromDate/ToDate
-            'Dates': '1',
-
             # Forward testing mode (split the test period):
             #  0 = No forward testing
             #  1 = Forward testing on 1/2 of the period
@@ -171,6 +160,7 @@ class Meta5AutoOptimizeRunner(MainClass):
         for key, value in inputs.items():
             config.set("TesterInputs", key, str(value))
 
+        config.set('TesterInputs', self._config['Tester']['ModeInputName'], mode)
         return config
 
     def _validate_config(self) -> bool:
