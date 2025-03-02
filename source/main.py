@@ -55,15 +55,19 @@ class Meta5AutoOptimizeRunner(MainClass):
         data_path.mkdir(parents=True, exist_ok=True)
         files = [each for each in _path.glob('*.set')]
         for file in tqdm(files, total=len(files), desc='Run Strategy Optimizer'):
-            filename = f'Res{file.stem}_{int(datetime.now().timestamp())}'
-            _config = self._update_config(self._config, filename, self._process_set_file(file))
-            _config_path = self.config_path / f'{filename}.ini'
-            with open(_config_path, mode="w", encoding="utf-8") as ini_file:
-                _config.write(ini_file)
-            with open(self.config_path / f'{filename}.set', mode="w", encoding="utf-8") as set_file:
-                set_file.write('\n'.join([f"{key}={value}" for key, value in _config['TesterInputs'].items()]))
-            subprocess.run([self._config['Meta']['TerminalPath'], f"/config:{_config_path}"])
-            self._xml_to_csv(data_path / f'{filename}.xml', self.result_path / f'{filename}.csv')
+            section = self._config['Tester']
+            self._remove_cache()
+            for prefix, mode in (('Test', '0'), ('Train', '1')):
+                filename = f'Res{file.stem}_TimeOptimize_{prefix}_{section['Symbol']}_{section['Period']}_' \
+                        f'{int(datetime.now().timestamp())}'
+                _config = self._update_config(self._config, filename, self._process_set_file(file), mode)
+                _config_path = self.config_path / f'{filename}.ini'
+                with open(_config_path, mode="w", encoding="utf-8") as ini_file:
+                    _config.write(ini_file)
+                with open(self.config_path / f'{filename}.set', mode="w", encoding="utf-8") as set_file:
+                    set_file.write('\n'.join([f"{key}={value}" for key, value in _config['TesterInputs'].items()]))
+                subprocess.run([self._config['Meta']['TerminalPath'], f"/config:{_config_path}"])
+                self._xml_to_csv(data_path / f'{filename}.xml', self.result_path / f'{filename}.csv')
 
     @staticmethod
     def _process_set_file(_config: Path) -> Dict[str, Any]:
