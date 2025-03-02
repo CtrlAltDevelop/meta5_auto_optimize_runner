@@ -42,6 +42,9 @@ class Meta5AutoOptimizeRunner(MainClass):
         self._config.read(base_path / "settings.ini", encoding="utf-8")
 
     def __run__(self):
+        if not self._validate_config():
+            return
+
         if self.debug:
             _path = self.data_path
         else:
@@ -169,6 +172,13 @@ class Meta5AutoOptimizeRunner(MainClass):
             config.set("TesterInputs", key, str(value))
 
         return config
+
+    def _validate_config(self) -> bool:
+        try:
+            return bool(self._config['TesterInputs'][self._config['Tester']['ModeInputName']])
+        except KeyError as e:
+            print(f'ERROR, No option \"{self._config['Tester']['ModeInputName']}\" in section: "TesterInputs"')
+            return False
 
     @staticmethod
     def _xml_to_csv(xml_path: Path, output_path: Path):
